@@ -3,11 +3,11 @@ from app.agents.state import AgentState
 from app.gateway import portkey_client, extract_cache_status
 
 
-def generate_node(state: AgentState):
+def build_prompt(state: AgentState) -> str:
     """
-    Synthesizes a response using both Documentation Context AND Conversation History.
-    Uses the native Portkey client (not LangChain) so we can read the
-    x-portkey-cache-status response header and surface Cache: Hit in the UI.
+    Builds the exact prompt sent to the LLM. Extracted from generate_node so the
+    eval suite (evals/rag_adapter.py) can measure tokens / TTFT / generator
+    quality on the SAME prompt production uses — no copy that can drift.
     """
     query = state["current_query"]
 
@@ -20,7 +20,7 @@ def generate_node(state: AgentState):
 
     if query == "CONVERSATIONAL":
         logfire.info("Generating conversational response using memory.")
-        prompt = f"""
+        return f"""
         You are a friendly and helpful Enterprise AI Assistant.
         Answer the user's latest message using the CONVERSATION HISTORY below.
 
@@ -30,19 +30,19 @@ def generate_node(state: AgentState):
         LATEST MESSAGE:
         "{user_msg}"
         """
-    else:
-        logfire.info("Generating technical RAG response.")
-        max_context_chars = 25000
-        full_context = ""
 
-        for doc in state["documents"]:
-            if len(full_context) + len(doc) < max_context_chars:
-                full_context += doc + "\n\n"
-            else:
-                logfire.warning("Context truncated to fit Groq TPM limits.")
-                break
+    logfire.info("Generating technical RAG response.")
+    max_context_chars = 25000
+    full_context = ""
 
-        prompt = f"""
+    for doc in state["documents"]:
+        if len(full_context) + len(doc) < max_context_chars:
+            full_context += doc + "\n\n"
+        else:
+            logfire.warning("Context truncated to fit Groq TPM limits.")
+            break
+
+    return f"""
         You are a Senior Technical Architect.
         Answer the question using the TECHNICAL CONTEXT provided.
 
@@ -55,6 +55,15 @@ def generate_node(state: AgentState):
         USER QUESTION:
         "{user_msg}"
         """
+
+
+def generate_node(state: AgentState):
+    """
+    Synthesizes a response using both Documentation Context AND Conversation History.
+    Uses the native Portkey client (not LangChain) so we can read the
+    x-portkey-cache-status response header and surface Cache: Hit in the UI.
+    """
+    prompt = build_prompt(state)
 
     with logfire.span("✍️ LLM Synthesis"):
         try:

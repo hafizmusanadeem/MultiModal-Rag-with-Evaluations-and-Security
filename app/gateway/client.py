@@ -1,3 +1,4 @@
+import os
 import logfire
 from portkey_ai import Portkey, createHeaders, PORTKEY_GATEWAY_URL
 from langchain_openai import ChatOpenAI
@@ -21,6 +22,13 @@ GATEWAY_CONFIG = {
         {"override_params": {"model": f"@{settings.GROQ_SLUG_2}/llama-3.1-8b-instant"}},
     ]
 }
+
+# ── EVAL PATCH ────────────────────────────────────────────────────────────────
+# evals/rag_adapter.py sets DISABLE_PORTKEY_CACHE=1 before importing the app.
+# Without this, repeated eval questions are served from Portkey's cache and
+# latency / cost numbers collapse to ~0. Production never sets this variable.
+if os.getenv("DISABLE_PORTKEY_CACHE") == "1":
+    GATEWAY_CONFIG.pop("cache", None)
 
 portkey_client = Portkey(
     api_key=settings.PORTKEY_API_KEY,
