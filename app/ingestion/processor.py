@@ -1,7 +1,9 @@
 import os
 import sys
+import time
 import uuid
 import json
+import hashlib
 import logfire
 
 from qdrant_client import QdrantClient
@@ -18,6 +20,12 @@ logfire.configure(service_name="enterprise-ingestion-service")
 
 # Local folder where parsed + chunked JSON metadata is saved (replaces GCS processed bucket)
 PROCESSED_DATA_DIR = "processed_data"
+
+# Chunks embedded + upserted per step. Each step is checkpointed in Qdrant,
+# so a crash/quota failure loses at most one batch.
+UPSERT_BATCH = int(os.getenv("INGEST_BATCH", "50"))
+# Pause between batches to stay under the per-minute embedding quota.
+INGEST_PACE_S = float(os.getenv("INGEST_PACE_S", "2"))
 
 # Initialize Qdrant Client
 qdrant_client = QdrantClient(
@@ -36,8 +44,29 @@ def save_processed_locally(data: dict, source_type: str, filename: str) -> str:
     return dest
 
 
+def _chunk_id(source_type: str, filename: str, index: int, chunk: str) -> str:
+    """Deterministic point ID: same file + position + content => same ID.
+    Makes ingestion idempotent and resumable (re-run skips what's already stored)."""
+    digest = hashlib.sha1(chunk.encode("utf-8")).hexdigest()[:16]
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"{source_type}/{filename}#{index}:{digest}"))
+
+
+def _existing_ids(ids: list[str]) -> set[str]:
+    """Which of these point IDs are already in the collection?"""
+    found: set[str] = set()
+    for i in range(0, len(ids), 256):
+        recs = qdrant_client.retrieve(
+            collection_name=settings.QDRANT_COLLECTION,
+            ids=ids[i : i + 256],
+            with_payload=False,
+            with_vectors=False,
+        )
+        found.update(str(r.id) for r in recs)
+    return found
+
+
 def process_file(file_path: str, filename: str, source_type: str):
-    """Parse → chunk → save locally → embed → index in Qdrant."""
+    """Parse → chunk → save locally → embed → index in Qdrant (resumable)."""
     with logfire.span("Processing File", file=filename, source=source_type):
         try:
             # 1. Extract text based on file extension
@@ -73,30 +102,53 @@ def process_file(file_path: str, filename: str, source_type: str):
             local_path = save_processed_locally(processed_data, source_type, filename)
             logfire.info(f"Saved processed data → {local_path}")
 
-            # 4. Embed and index in Qdrant
+            # 4. Embed and index in Qdrant, batch by batch, skipping chunks already stored
             with logfire.span("Vectorizing & Indexing"):
-                embeddings = embed_texts(chunks)
-                points = [
-                    models.PointStruct(
-                        id=str(uuid.uuid4()),
-                        vector=vector,
-                        payload={
-                            "text": chunk,
-                            "source": filename,
-                            "source_type": source_type,
-                        },
-                    )
-                    for chunk, vector in zip(chunks, embeddings)
-                ]
+                ids = [_chunk_id(source_type, filename, i, c) for i, c in enumerate(chunks)]
+                already = _existing_ids(ids)
+                todo = [i for i in range(len(chunks)) if ids[i] not in already]
 
-                qdrant_client.upsert(
-                    collection_name=settings.QDRANT_COLLECTION,
-                    points=points,
-                )
-                logfire.info(f"Indexed {len(points)} points to Qdrant from {filename}.")
+                if already:
+                    logfire.info(
+                        f"Resuming {filename}: {len(already)}/{len(chunks)} chunks already "
+                        f"indexed, {len(todo)} remaining."
+                    )
+                if not todo:
+                    logfire.info(f"{filename} is already fully indexed — nothing to do.")
+                    return
+
+                indexed = len(already)
+                for start in range(0, len(todo), UPSERT_BATCH):
+                    idxs = todo[start : start + UPSERT_BATCH]
+                    vectors = embed_texts([chunks[i] for i in idxs])  # retries/waits on 429
+                    points = [
+                        models.PointStruct(
+                            id=ids[i],
+                            vector=vec,
+                            payload={
+                                "text": chunks[i],
+                                "source": filename,
+                                "source_type": source_type,
+                            },
+                        )
+                        for i, vec in zip(idxs, vectors)
+                    ]
+                    qdrant_client.upsert(
+                        collection_name=settings.QDRANT_COLLECTION,
+                        points=points,
+                    )
+                    indexed += len(points)
+                    logfire.info(f"Indexed {indexed}/{len(chunks)} chunks of {filename}.")
+                    if start + UPSERT_BATCH < len(todo):
+                        time.sleep(INGEST_PACE_S)
+
+                logfire.info(f"Finished indexing {filename}: {indexed}/{len(chunks)} chunks.")
 
         except Exception as e:
-            logfire.error(f"Failed to process {filename}: {e}")
+            logfire.error(
+                f"Failed to process {filename}: {e}. "
+                f"Progress is saved — re-run the same command (without --wipe) to resume."
+            )
 
 
 def process_directory(dir_path: str, source_type: str):

@@ -1,5 +1,7 @@
 import logfire
-from langchain_groq import ChatGroq
+# from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
+from portkey_ai import Portkey, createHeaders, PORTKEY_GATEWAY_URL
 from nemoguardrails import RailsConfig, LLMRails
 
 from app.config import settings
@@ -9,7 +11,7 @@ from app.guardrails.colang_rules import COLANG_CONTENT, YAML_CONTENT, RAIL_INDIC
 _rails: LLMRails | None = None
 
 
-def initialize_rails() -> None:
+def initialize_rails(feature: str = "rag") -> None:
     """
     Build the NeMo LLMRails singleton at app startup.
     Uses llama-3.1-8b-instant for fast intent classification at the gate —
@@ -17,10 +19,22 @@ def initialize_rails() -> None:
     """
     global _rails
 
-    guard_llm = ChatGroq(
-        api_key=settings.GROQ_API_KEY,
-        model="llama-3.1-8b-instant",
-        temperature=0
+    guard_llm = ChatOpenAI(
+        api_key=settings.PORTKEY_API_KEY,
+        base_url=PORTKEY_GATEWAY_URL,
+        model=f"@{settings.GROQ_SLUG}/openrouter/free",
+        temperature=0,
+        timeout=settings.LLM_TIMEOUT_SECONDS,
+        max_retries=settings.LLM_MAX_RETRIES,
+        default_headers=createHeaders(
+            api_key=settings.PORTKEY_API_KEY,
+            config=settings.PORTKEY_CONFIG_ID,
+            metadata={
+                "feature": feature,
+                "_user": "rag-system",
+                "environment": "production"
+            }
+        )
     )
 
     config = RailsConfig.from_content(
@@ -29,7 +43,7 @@ def initialize_rails() -> None:
     )
 
     _rails = LLMRails(config, llm=guard_llm)
-    logfire.info("🛡️ NeMo Guardrails initialised (llama-3.1-8b-instant).")
+    logfire.info("🛡️ NeMo Guardrails initialised (Openrouter/free).")
     
     
 
