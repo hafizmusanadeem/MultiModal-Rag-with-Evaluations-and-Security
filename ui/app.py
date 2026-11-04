@@ -17,7 +17,7 @@ def _cfg(name: str, default: str = "") -> str:
         return os.getenv(name, default)  # local env / .env
 
 
-BACKEND_URL = _cfg("BACKEND_URL", "http://localhost:8000").rstrip("/")
+BACKEND_URL = _cfg("BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
 API_KEY = _cfg("API_KEY")
 HEADERS = {"X-API-Key": API_KEY} if API_KEY else {}
 REQUEST_TIMEOUT = 120
