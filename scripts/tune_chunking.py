@@ -71,7 +71,7 @@ W_RECALL, W_HIT, W_MRR, W_PREC = 0.4, 0.3, 0.2, 0.1
 
 
 # ============================================================ corpus + goldens
-def load_corpus(processed_dir, source_types=None, max_files=None):
+def load_corpus(processed_dir, source_types=None, max_files=None, name_contains=None):
     """processed_data/<source_type>/<file>.json -> {filename: full_text}"""
     docs = {}
     paths = sorted(glob.glob(os.path.join(processed_dir, "**", "*.json"), recursive=True))
@@ -79,6 +79,8 @@ def load_corpus(processed_dir, source_types=None, max_files=None):
         with open(p, encoding="utf-8") as f:
             d = json.load(f)
         if source_types and d.get("source_type") not in source_types:
+            continue
+        if name_contains and name_contains.lower() not in d.get("filename", "").lower():
             continue
         text = "\n\n".join(d.get("chunks", []))
         if text.strip():
@@ -367,8 +369,8 @@ def score_config(chunks, chunk_vecs, q_vecs, goldens, k, rerank):
 def main():
     ap = argparse.ArgumentParser(description="Grid-search chunk size / overlap against your golden set.")
     ap.add_argument("--sizes", type=int, nargs="+", default=DEFAULT_SIZES, help="chunk sizes in chars")
-    ap.add_argument("--overlaps", type=float, nargs="+", default=DEFAULT_OVERLAP_FRACS,
-                    help="overlap as a FRACTION of chunk size (e.g. 0 0.1 0.2). Values >=1 are treated as absolute chars.")
+    ap.add_argument("--overlaps", type=float, nargs="+", default=DEFAULT_OVERLAP_FRACS, help="overlap as a FRACTION of chunk size (e.g. 0 0.1 0.2). Values >=1 are treated as absolute chars.")
+    ap.add_argument("--name-contains", default=None, help="only keep docs whose filename contains this substring (case-insensitive)")
     ap.add_argument("--k", type=int, default=5, help="chunks passed to the generator (production: 5)")
     ap.add_argument("--rerank", action="store_true", help="mimic production: top-15 -> FlashRank -> top-k")
     ap.add_argument("--processed-dir", default=PROCESSED_DIR)
@@ -383,7 +385,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="only print chunk counts; no embedding calls")
     args = ap.parse_args()
 
-    docs = load_corpus(args.processed_dir, args.source_types, args.max_files)
+    docs = load_corpus(args.processed_dir, args.source_types, args.max_files, args.name_contains)
     if not docs:
         raise SystemExit(f"No documents found under {args.processed_dir}")
     total_chars = sum(len(t) for t in docs.values())

@@ -1,3 +1,4 @@
+import os
 import time
 import logfire
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -12,7 +13,7 @@ _model_type: str | None = None  # "gemini" or "fallback"
 
 
 # ── Model initialisation ───────────────────────────────────────────────────────
-
+ 
 def _probe_gemini():
     """Try one embed call to verify Gemini is reachable. Returns model or None."""
     try:
@@ -39,7 +40,12 @@ def _init():
     global _active_model, _model_type
     if _active_model is not None:
         return
-
+    
+    if os.getenv("FORCE_LOCAL_EMBEDDINGS") == "1":
+            _active_model = _load_fallback()
+            _model_type = "fallback"
+            return
+    
     gemini = _probe_gemini()
     if gemini:
         _active_model = gemini
