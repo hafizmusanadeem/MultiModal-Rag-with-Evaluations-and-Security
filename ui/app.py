@@ -4,13 +4,39 @@ Streamlit frontend for the Enterprise RAG API.
 Run (from project root, backend already running on :8000):
     streamlit run ui/app.py
 """
+import os
 import uuid
-
 import requests
 import streamlit as st
 
-BACKEND_URL = "http://localhost:8000"
+
+def _cfg(name: str, default: str = "") -> str:
+    try:
+        return st.secrets[name]          # Streamlit Cloud secrets
+    except Exception:
+        return os.getenv(name, default)  # local env / .env
+
+
+BACKEND_URL = _cfg("BACKEND_URL", "http://localhost:8000").rstrip("/")
+API_KEY = _cfg("API_KEY")
+HEADERS = {"X-API-Key": API_KEY} if API_KEY else {}
 REQUEST_TIMEOUT = 120
+
+# backend_ok() - /health is open, header not needed, leave as is
+
+def ask(question: str) -> dict:
+    resp = requests.post(
+        f"{BACKEND_URL}/query",
+        json={"q": question, "thread_id": st.session_state.thread_id},
+        headers=HEADERS, timeout=REQUEST_TIMEOUT,
+    )
+    ...
+
+def submit_feedback(trace_id, rating, comment=None):
+    response = requests.post(f"{BACKEND_URL}/feedback",
+                             json={"trace_id": trace_id, "rating": rating, "comment": comment},
+                             headers=HEADERS, timeout=10)
+    ...
 
 SUGGESTIONS = [
     "How does a Kubernetes Service route traffic to pods?",

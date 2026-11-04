@@ -30,7 +30,7 @@ wheels/
 # Local Vector Store
 index.faiss
 metadata.pkl
-
+*.pkl
 # Data
 
 
