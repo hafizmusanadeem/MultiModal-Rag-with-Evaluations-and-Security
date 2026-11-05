@@ -1,13 +1,16 @@
 """
-Streamlit frontend for the Enterprise RAG API.
+Streamlit frontend for the JAFZA Rules Assistant.
 
-Run (from project root, backend already running on :8000):
+Run locally (backend already running on :8000):
     streamlit run ui/app.py
+On Streamlit Cloud it is launched through streamlit_app.py.
 """
 import os
 import uuid
+
 import requests
 import streamlit as st
+from streamlit.errors import StreamlitAPIException
 
 
 def _cfg(name: str, default: str = "") -> str:
@@ -22,29 +25,31 @@ API_KEY = _cfg("API_KEY")
 HEADERS = {"X-API-Key": API_KEY} if API_KEY else {}
 REQUEST_TIMEOUT = 120
 
-# backend_ok() - /health is open, header not needed, leave as is
+APP_NAME = "JAFZA Rules Assistant"
+CORPUS_NAME = "Jebel Ali Free Zone Rules, 9th Edition (March 2023)"
 
-def ask(question: str) -> dict:
-    resp = requests.post(
-        f"{BACKEND_URL}/query",
-        json={"q": question, "thread_id": st.session_state.thread_id},
-        headers=HEADERS, timeout=REQUEST_TIMEOUT,
-    )
-    ...
-
-def submit_feedback(trace_id, rating, comment=None):
-    response = requests.post(f"{BACKEND_URL}/feedback",
-                             json={"trace_id": trace_id, "rating": rating, "comment": comment},
-                             headers=HEADERS, timeout=10)
-    ...
-
+# Three one-click starter questions (shown until the first message is sent).
 SUGGESTIONS = [
-    "How does a Kubernetes Service route traffic to pods?",
-    "What is the difference between a Deployment and a StatefulSet?",
-    "Summarize the networking requirements from the docs",
+    "What conditions must a customer meet to renew a Licence?",
+    "What fines apply for cooking in staff accommodation?",
+    "How is the guarantee for a sponsored employee calculated?",
 ]
 
-st.set_page_config(page_title="Docs Assistant", page_icon="📘", layout="centered")
+# What the assistant covers, shown in the "What can I ask?" panel.
+TOPICS = {
+    "Licences & leases": "licence types and renewal, sub-leasing, lease and operational deadlines",
+    "Employees & labour": "sponsorship, passes, overtime, termination, gratuity, WPS, absconding employees",
+    "Inspections & fines": "inspection rules, violation penalties, notices, the violation fine list",
+    "Health, safety & environment": "accident reporting, waste disposal, containers, fire safety",
+    "Insurance": "building, third-party liability and workmen's compensation cover",
+    "Accommodation, traffic & security": "room rules, occupancy, parking, vehicle registration, access and photography",
+    "Tariff & fees": "registration, licence, visa, permit and administrative service fees",
+}
+
+try:
+    st.set_page_config(page_title=APP_NAME, page_icon="📘", layout="centered")
+except StreamlitAPIException:
+    pass  # already set by streamlit_app.py
 
 # ---------------------------------------------------------------- styling
 st.markdown(
@@ -69,7 +74,11 @@ header[data-testid="stHeader"] { background: transparent; }
 
 h1.app-title { font-family: 'Newsreader', Georgia, serif; font-weight: 600; font-size: 2.1rem;
   letter-spacing: -0.01em; margin: 0 0 .15rem; }
-.app-sub { color: var(--muted); margin-bottom: 1.5rem; max-width: 60ch; }
+.app-sub { color: var(--muted); margin-bottom: 1rem; max-width: 62ch; }
+
+.scope { background: var(--accent-soft); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+  border-radius: 8px; padding: .75rem 1rem; margin-bottom: 1rem; font-size: .92rem; line-height: 1.5; }
+.scope b { color: var(--accent); }
 
 [data-testid="stChatMessage"] { background: var(--panel); border: 1px solid var(--line);
   border-radius: 10px; padding: .9rem 1rem; }
@@ -88,8 +97,8 @@ section[data-testid="stSidebar"] { background: var(--panel); border-right: 1px s
 .status-dot { display:inline-block; width:.6rem; height:.6rem; border-radius:50%; margin-right:.45rem; }
 .ok { background:#2e9e6b; } .down { background:#c0443a; }
 
-.stButton > button { border-radius: 8px; border: 1px solid var(--line); background: var(--panel);
-  color: var(--ink); font-weight: 500; }
+.stButton > button { width: 100%; text-align: left; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--ink); font-weight: 500; }
 .stButton > button:hover { border-color: var(--accent); color: var(--accent); }
 .stButton > button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
@@ -145,7 +154,7 @@ def _api_error_from(resp: requests.Response) -> ApiError:
 
 def backend_ok() -> bool:
     try:
-        return requests.get(f"{BACKEND_URL}/health", timeout=3).ok
+        return requests.get(f"{BACKEND_URL}/health", timeout=3).ok  # /health is open: no key needed
     except requests.RequestException:
         return False
 
@@ -154,7 +163,7 @@ def ask(question: str) -> dict:
     resp = requests.post(
         f"{BACKEND_URL}/query",
         json={"q": question, "thread_id": st.session_state.thread_id},
-        timeout=REQUEST_TIMEOUT,
+        headers=HEADERS, timeout=REQUEST_TIMEOUT,
     )
     if not resp.ok:
         raise _api_error_from(resp)
@@ -162,16 +171,18 @@ def ask(question: str) -> dict:
 
 
 def submit_feedback(trace_id: str, rating: str, comment: str | None = None):
-    response = requests.post(f"{BACKEND_URL}/feedback",
-                             json={"trace_id": trace_id, "rating": rating, "comment": comment},
-                             timeout=10)
+    response = requests.post(
+        f"{BACKEND_URL}/feedback",
+        json={"trace_id": trace_id, "rating": rating, "comment": comment},
+        headers=HEADERS, timeout=10,
+    )
     if not response.ok:
         raise _api_error_from(response)
     return response.json()
 
 
 def render_extras(sources: list[str], steps: list[str]) -> None:
-    """Chips for the agent's steps + an expander with the retrieved chunks."""
+    """Chips for the agent's steps + an expander with the retrieved passages."""
     if steps:
         chips = "".join(
             f'<span class="chip {"cache" if "Cache" in s else ""}">{s}</span>' for s in steps
@@ -190,7 +201,7 @@ def render_extras(sources: list[str], steps: list[str]) -> None:
 
 # ---------------------------------------------------------------- sidebar
 with st.sidebar:
-    st.markdown("### Docs Assistant")
+    st.markdown(f"### {APP_NAME}")
     online = backend_ok()
     st.markdown(
         f'<span class="status-dot {"ok" if online else "down"}"></span>'
@@ -198,29 +209,40 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     if not online:
-        st.caption(f"Start the backend: `uvicorn app.main:app --port 8000` ({BACKEND_URL})")
+        st.caption(f"Backend not reachable at {BACKEND_URL}.")
+
+    st.divider()
+    st.caption("Knowledge base")
+    st.markdown(f"**{CORPUS_NAME}**")
+    st.caption(
+        "Answers come only from this document. Questions about other free zones, "
+        "UAE mainland law in general, or unrelated topics are out of scope."
+    )
 
     st.divider()
     st.caption("Conversation")
     st.code(st.session_state.thread_id, language=None)
-    if st.button("New conversation", use_container_width=True):
+    if st.button("New conversation"):
         st.session_state.thread_id = f"web-{uuid.uuid4().hex[:8]}"
         st.session_state.messages = []
         st.rerun()
 
-    st.divider()
-    st.caption(
-        "Answers are grounded in your ingested documents. Open **Sources** under "
-        "a reply to see the passages it used."
-    )
-
 # ---------------------------------------------------------------- main
-st.markdown('<h1 class="app-title">Ask your documentation</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="app-title">Ask about the JAFZA Rules</h1>', unsafe_allow_html=True)
 st.markdown(
-    '<p class="app-sub">Technical questions are searched against your knowledge base and '
-    "reranked before answering. Follow-ups use the conversation so far.</p>",
+    f'<p class="app-sub">Ask about operating in the Jebel Ali Free Zone, Dubai. Answers are '
+    f"grounded in the <b>{CORPUS_NAME}</b>, and every reply shows the passages it used.</p>",
     unsafe_allow_html=True,
 )
+
+with st.expander("What can I ask?", expanded=not st.session_state.messages):
+    st.markdown(
+        '<div class="scope">I can help with questions about <b>JAFZA rules, requirements, '
+        "fees and penalties</b>. I can't help with other topics.</div>",
+        unsafe_allow_html=True,
+    )
+    for topic, detail in TOPICS.items():
+        st.markdown(f"- **{topic}:** {detail}")
 
 for msg_index, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
@@ -248,12 +270,12 @@ for msg_index, msg in enumerate(st.session_state.messages):
 
 pending = None
 if not st.session_state.messages:
-    st.caption("Try one of these")
+    st.caption("Not sure where to start? Try one of these:")
     for i, s in enumerate(SUGGESTIONS):
         if st.button(s, key=f"sugg{i}"):
             pending = s
 
-typed = st.chat_input("Ask a question about your documents")
+typed = st.chat_input("Ask about JAFZA, e.g. “What is the fine for hindering an inspection?”")
 question = typed or pending
 
 if question:
@@ -266,7 +288,7 @@ if question:
         sources: list[str] = []
         steps: list[str] = []
         trace_id = None
-        with st.spinner("Searching and drafting an answer…"):
+        with st.spinner("Searching the JAFZA Rules and drafting an answer…"):
             try:
                 data = ask(question)
                 answer = data.get("answer") or "No answer was returned."
@@ -296,4 +318,4 @@ if question:
         {"role": "assistant", "content": answer, "sources": sources, "steps": steps,
          "trace_id": trace_id, "feedback_sent": False, "error": is_error}
     )
-    st.rerun() if pending else None
+    st.rerun()  # redraw from history so the starter buttons disappear and feedback buttons appear
