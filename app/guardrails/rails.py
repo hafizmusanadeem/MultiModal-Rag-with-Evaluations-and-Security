@@ -1,4 +1,5 @@
 import logfire
+from langsmith import traceable
 # from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
 from portkey_ai import Portkey, createHeaders, PORTKEY_GATEWAY_URL
@@ -47,7 +48,7 @@ def initialize_rails(feature: str = "rag") -> None:
     
     
 
-
+@traceable(name="guardrails_check", run_type="chain")
 def guard(message: str) -> tuple[bool, str | None]:
     """
     Run a user message through the NeMo rails gate.

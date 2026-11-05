@@ -1,8 +1,10 @@
 import logfire
+from langsmith import traceable
 from app.agents.state import AgentState
 from app.services.retrieval.qdrant_service import search_enterprise_knowledge
 from app.services.retrieval.ranking_service import rerank_documents
 
+@traceable(name="retriever_node", run_type="retriever")
 def retrieve_node(state: AgentState):
     """
     Performs vector search and semantic reranking for technical queries.

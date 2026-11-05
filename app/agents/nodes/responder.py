@@ -1,4 +1,5 @@
 import logfire
+from langsmith import traceable
 from app.agents.state import AgentState
 from app.gateway import portkey_client, extract_cache_status
 
@@ -56,7 +57,7 @@ def build_prompt(state: AgentState) -> str:
         "{user_msg}"
         """
 
-
+@traceable(name="generate_node", run_type="llm-generator")
 def generate_node(state: AgentState):
     """
     Synthesizes a response using both Documentation Context AND Conversation History.

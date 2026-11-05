@@ -1,10 +1,12 @@
 from app.agents.state import AgentState
 from app.gateway import get_langchain_llm
+from langsmith import traceable
 import logfire
 
 # Portkey-backed LLM: fallback + cache + retry — same .invoke() interface as ChatGroq
 llm = get_langchain_llm(feature="planner")
 
+@traceable(name="planner_node", run_type="chain")
 def planner_node(state: AgentState):
     """
     The Planner determines if a search is needed based on the ENTIRE conversation.
