@@ -35,7 +35,7 @@ SUGGESTIONS = [
     "How is the guarantee for a sponsored employee calculated?",
 ]
 
-# What the assistant covers, shown in the "What can I ask?" panel.
+# What the assistant covers, shown in the sidebar.
 TOPICS = {
     "Licences & leases": "licence types and renewal, sub-leasing, lease and operational deadlines",
     "Employees & labour": "sponsorship, passes, overtime, termination, gratuity, WPS, absconding employees",
@@ -58,48 +58,85 @@ st.markdown(
 @import url('https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap');
 
 :root {
-  --ink: #1b2830;
-  --muted: #5b6b75;
-  --paper: #f5f7f6;
+  color-scheme: light;
+  --ink: #000000;
+  --muted: #333333;
+  --paper: #ffffff;
   --panel: #ffffff;
   --line: #d9e0e3;
   --accent: #1d6a85;
   --accent-soft: #e2eff3;
-  --amber: #b9791a;
+  --amber: #8a5a10;
   --amber-soft: #fbf0dc;
 }
-html, body, [class*="css"], .stApp { font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: var(--ink); }
-.stApp { background: var(--paper); }
-header[data-testid="stHeader"] { background: transparent; }
 
-h1.app-title { font-family: 'Newsreader', Georgia, serif; font-weight: 600; font-size: 2.1rem;
-  letter-spacing: -0.01em; margin: 0 0 .15rem; }
-.app-sub { color: var(--muted); margin-bottom: 1rem; max-width: 62ch; }
+/* White page, black text everywhere (overrides the browser's dark mode) */
+html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
+[data-testid="stBottom"], [data-testid="stBottom"] > div {
+  background: var(--paper) !important;
+  font-family: 'Schibsted Grotesk', system-ui, sans-serif;
+}
+.stApp p, .stApp span, .stApp li, .stApp label, .stApp div, .stApp a,
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
+.stApp summary, .stApp small, .stApp code, .stApp pre,
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {
+  color: var(--ink) !important;
+}
+header[data-testid="stHeader"] { background: transparent !important; }
 
-.scope { background: var(--accent-soft); border: 1px solid var(--line); border-left: 4px solid var(--accent);
-  border-radius: 8px; padding: .75rem 1rem; margin-bottom: 1rem; font-size: .92rem; line-height: 1.5; }
-.scope b { color: var(--accent); }
+/* Tighter page spacing so less scrolling is needed */
+.block-container { padding-top: 2rem !important; padding-bottom: 1rem !important; }
 
-[data-testid="stChatMessage"] { background: var(--panel); border: 1px solid var(--line);
-  border-radius: 10px; padding: .9rem 1rem; }
+h1.app-title { font-family: 'Newsreader', Georgia, serif; font-weight: 600; font-size: 1.9rem;
+  letter-spacing: -0.01em; margin: 0 0 .1rem; padding: 0; }
+.app-sub { margin: 0 0 .6rem; max-width: 70ch; font-size: .95rem; }
+
+.hint { background: var(--accent-soft); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+  border-radius: 8px; padding: .5rem .8rem; margin-bottom: .6rem; font-size: .88rem; line-height: 1.4; }
+
+[data-testid="stChatMessage"] { background: var(--panel) !important; border: 1px solid var(--line);
+  border-radius: 10px; padding: .8rem 1rem; }
 [data-testid="stChatMessage"] p { line-height: 1.6; max-width: 72ch; }
 
-.chip { display: inline-block; font-size: .78rem; padding: .12rem .55rem; border-radius: 999px;
-  background: var(--accent-soft); color: var(--accent); margin: 0 .35rem .35rem 0; font-weight: 500; }
-.chip.cache { background: var(--amber-soft); color: var(--amber); }
+/* Chat input */
+[data-testid="stChatInput"], [data-testid="stChatInput"] > div { background: #ffffff !important; }
+[data-testid="stChatInput"] textarea { color: #000000 !important; background: #ffffff !important;
+  -webkit-text-fill-color: #000000 !important; }
+[data-testid="stChatInput"] textarea::placeholder { color: #555555 !important; }
 
-.source { border-left: 3px solid var(--accent); background: var(--paper); padding: .6rem .8rem;
+.stApp .chip { display: inline-block; font-size: .78rem; padding: .12rem .55rem; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent) !important; margin: 0 .35rem .35rem 0; font-weight: 500; }
+.stApp .chip.cache { background: var(--amber-soft); color: var(--amber) !important; }
+
+.source { border-left: 3px solid var(--accent); background: #f4f6f7; padding: .6rem .8rem;
   margin-bottom: .6rem; border-radius: 0 6px 6px 0; font-size: .88rem; line-height: 1.5;
   white-space: pre-wrap; }
-.source-label { font-size: .78rem; color: var(--muted); margin-bottom: .25rem; font-weight: 500; }
+.source-label { font-size: .78rem; margin-bottom: .25rem; font-weight: 500; }
 
-section[data-testid="stSidebar"] { background: var(--panel); border-right: 1px solid var(--line); }
+/* Sidebar */
+section[data-testid="stSidebar"], section[data-testid="stSidebar"] > div {
+  background: #f1f4f5 !important; border-right: 1px solid var(--line); }
+section[data-testid="stSidebar"] .block-container { padding-top: 1rem !important; }
+.topic { font-size: .82rem; line-height: 1.35; margin-bottom: .45rem; }
+.topic b { display: block; }
 .status-dot { display:inline-block; width:.6rem; height:.6rem; border-radius:50%; margin-right:.45rem; }
 .ok { background:#2e9e6b; } .down { background:#c0443a; }
 
+/* Code blocks (thread id) */
+[data-testid="stCode"], [data-testid="stCode"] pre, [data-testid="stCode"] code {
+  background: #ffffff !important; color: #000000 !important; }
+
+/* Expanders */
+[data-testid="stExpander"] { background: #ffffff !important; border: 1px solid var(--line) !important;
+  border-radius: 8px; }
+[data-testid="stExpander"] summary { background: #ffffff !important; }
+
+/* Buttons */
 .stButton > button { width: 100%; text-align: left; border-radius: 8px; border: 1px solid var(--line);
-  background: var(--panel); color: var(--ink); font-weight: 500; }
-.stButton > button:hover { border-color: var(--accent); color: var(--accent); }
+  background: #ffffff !important; color: #000000 !important; font-weight: 500; }
+.stButton > button p { color: #000000 !important; }
+.stButton > button:hover { border-color: var(--accent); }
+.stButton > button:hover p { color: var(--accent) !important; }
 .stButton > button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
@@ -212,12 +249,17 @@ with st.sidebar:
         st.caption(f"Backend not reachable at {BACKEND_URL}.")
 
     st.divider()
+    st.markdown("**What can I ask?**")
+    st.caption("JAFZA rules, requirements, fees and penalties. Other topics are out of scope.")
+    topics_html = "".join(
+        f'<div class="topic"><b>{t}</b>{d}</div>' for t, d in TOPICS.items()
+    )
+    st.markdown(topics_html, unsafe_allow_html=True)
+
+    st.divider()
     st.caption("Knowledge base")
     st.markdown(f"**{CORPUS_NAME}**")
-    st.caption(
-        "Answers come only from this document. Questions about other free zones, "
-        "UAE mainland law in general, or unrelated topics are out of scope."
-    )
+    st.caption("Answers come only from this document.")
 
     st.divider()
     st.caption("Conversation")
@@ -230,19 +272,15 @@ with st.sidebar:
 # ---------------------------------------------------------------- main
 st.markdown('<h1 class="app-title">Ask about the JAFZA Rules</h1>', unsafe_allow_html=True)
 st.markdown(
-    f'<p class="app-sub">Ask about operating in the Jebel Ali Free Zone, Dubai. Answers are '
-    f"grounded in the <b>{CORPUS_NAME}</b>, and every reply shows the passages it used.</p>",
+    '<p class="app-sub">Answers are grounded in the Jebel Ali Free Zone Rules, and every '
+    "reply shows the passages it used.</p>",
     unsafe_allow_html=True,
 )
-
-with st.expander("What can I ask?", expanded=not st.session_state.messages):
+if not st.session_state.messages:
     st.markdown(
-        '<div class="scope">I can help with questions about <b>JAFZA rules, requirements, '
-        "fees and penalties</b>. I can't help with other topics.</div>",
+        '<div class="hint">See the sidebar for the topics you can ask about, or try a starter question below.</div>',
         unsafe_allow_html=True,
     )
-    for topic, detail in TOPICS.items():
-        st.markdown(f"- **{topic}:** {detail}")
 
 for msg_index, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
@@ -270,7 +308,6 @@ for msg_index, msg in enumerate(st.session_state.messages):
 
 pending = None
 if not st.session_state.messages:
-    st.caption("Not sure where to start? Try one of these:")
     for i, s in enumerate(SUGGESTIONS):
         if st.button(s, key=f"sugg{i}"):
             pending = s

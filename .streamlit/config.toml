@@ -1,2 +1,9 @@
 [server]
 fileWatcherType = "none"
+
+[theme]
+base = "light"
+primaryColor = "#1d6a85"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f1f4f5"
+textColor = "#000000"
