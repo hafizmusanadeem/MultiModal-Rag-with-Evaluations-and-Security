@@ -4,7 +4,7 @@ Application eval: end-to-end answer quality via three GEval metrics.
 
   Correctness  -- reference-based, judges TRUTH (not coverage or length)
   Completeness -- reference-based, judges COVERAGE of the reference's key points
-  Style        -- reference-free, judges the "Senior Technical Architect" voice
+  Style        -- reference-free, judges the JAFZA Rules Assistant voice
 
     python -m evals.eval_application
 """
@@ -73,16 +73,16 @@ def run(rag, goldens=None):
         name="Style",
         evaluation_steps=[
             "Judge only the style and tone of the actual output, not whether it is factually correct or complete.",
-            "Reward the voice of a Senior Technical Architect: precise, direct, and actionable, with commands and manifests shown as code and a one-line reason for each non-obvious step.",
+            "Reward the voice of a precise compliance advisor: direct, accurate and actionable, quoting exact figures and conditions and citing rule numbers where available, with a one-line reason for each non-obvious point.",
             "Reward a professional but readable register: plain language, jargon briefly unpacked when it matters, no filler or hedging.",
             "Penalize answers that ramble, bury the command or answer under preamble, are unexplained walls of jargon, or read as robotic boilerplate.",
             "Do NOT reward or penalize based on correctness, completeness, or length --- only on style and tone.",
         ],
         rubric=[
-            Rubric(score_range=(9, 10), expected_outcome="Clearly an expert architect's voice: direct answer first, commands in code, brief rationale, no fluff."),
+            Rubric(score_range=(9, 10), expected_outcome="Clearly an expert compliance advisor's voice: direct answer first, exact figures and rule references, brief rationale, no fluff."),
             Rubric(score_range=(7, 8),  expected_outcome="Clear, professional and actionable. Fully acceptable even if plain."),
             Rubric(score_range=(4, 6),  expected_outcome="Understandable but wordy, flat, or poorly structured in places."),
-            Rubric(score_range=(0, 3),  expected_outcome="Rambling, evasive, jargon-heavy, or robotic; not useful as technical guidance."),
+            Rubric(score_range=(0, 3),  expected_outcome="Rambling, evasive, jargon-heavy, or robotic; not useful as compliance guidance."),
         ],
         evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
         threshold=THRESHOLD, model=judge, strict_mode=False,

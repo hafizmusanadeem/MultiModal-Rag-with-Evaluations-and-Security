@@ -24,12 +24,12 @@ import time
 from evals.rag_adapter import RagPipeline, generate_with_usage
 from evals.harness import pace
 
-# Representative questions across the corpus (K8s autoscaling, K8s Jobs, Databricks).
+# Representative questions across the JAFZA Rules (licensing, employment, insurance, fines).
 QUESTIONS = [
-    "How do you start Redis for a Kubernetes work queue?",
-    "What is the difference between HPA and VPA in Kubernetes?",
-    "What Databricks CLI command retrieves the details of a specific job?",
-    "What are the valid restart policy values for a Kubernetes Job pod?",
+    "What conditions must a Customer meet to renew its Licence?",
+    "How is the guarantee for a Sponsored Employee calculated?",
+    "What third-party liability insurance cover is required for 20 or more Employees?",
+    "What is the fine for cooking in staff Accommodation?",
 ]
 
 
