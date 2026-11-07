@@ -51,6 +51,7 @@ from app.agents.nodes.responder import build_prompt
 from app.services.retrieval.qdrant_service import search_enterprise_knowledge
 from app.services.retrieval.ranking_service import rerank_documents
 from app.gateway import portkey_client
+from app.messages import CONVERSATIONAL, OUT_OF_SCOPE, OFF_TOPIC_REPLY
 
 FETCH_K = 15   # mirrors app/agents/nodes/retriever.py
 TOP_K = 5
@@ -218,7 +219,11 @@ class RagPipeline:
         state = _initial_state(question)
         state.update(planner_node(state))
         t2 = time.perf_counter()
-        if state["current_query"] != "CONVERSATIONAL":
+        if state["current_query"] == OUT_OF_SCOPE:
+            # Production routes this to a fixed refusal with no retrieval and no LLM call.
+            return OFF_TOPIC_REPLY, {"guardrails": (t1 - t0) * 1000, "planner": (t2 - t1) * 1000,
+                                     "retrieval": 0.0, "generation": 0.0, "ttft": float("nan")}
+        if state["current_query"] != CONVERSATIONAL:
             state.update(retrieve_node(state))
         t3 = time.perf_counter()
 
