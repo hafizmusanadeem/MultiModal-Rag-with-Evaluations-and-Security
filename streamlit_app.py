@@ -16,7 +16,7 @@ import streamlit as st
 # MUST be the first Streamlit command. Any st.* call before it (including the
 # spinner that @st.cache_resource shows by default) makes ui/app.py's own
 # set_page_config() raise, which is what breaks the UI on Cloud.
-st.set_page_config(page_title="JAFZA Rules Assistant", page_icon="📘", layout="centered")
+st.set_page_config(page_title="JAFZA Rules Assistant", page_icon="✦", layout="wide", initial_sidebar_state="collapsed")
 
 ROOT = Path(__file__).resolve().parent
 BACKEND = "http://127.0.0.1:8000"
